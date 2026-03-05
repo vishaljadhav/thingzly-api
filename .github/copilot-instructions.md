@@ -1,247 +1,295 @@
-# Elevate React CMS - AI Coding Instructions
+# Thingzly API - AI Coding Instructions
 
 ## Architecture Overview
 
-This is a **frontend-only React CMS** for workforce management (staffing agencies, workers, shifts). **No backend server** - removed Drizzle/DB code in favor of third-party API integration. Key structural decisions:
+This is a **Fastify-based REST API** deployed on **DigitalOcean App Platform** with **PostgreSQL**. Key structural decisions:
 
-- **Single-page app** with `wouter` routing (not React Router)
-- **Password gate**: `ArcadePasswordScreen` component with hardcoded password `"Optime2025!!"` blocks access until unlocked
-- **Admin-focused UI**: Main workflow is `/admin` landing → specific management pages
-- **Theme system**: Custom `ThemeProvider` with localStorage persistence (`"elevate-theme"`)
-- **Component library**: Shadcn/ui components in `client/src/components/ui/`
+- **Framework**: Fastify with TypeScript for high-performance APIs
+- **Database**: DigitalOcean Managed PostgreSQL with Prisma ORM
+- **Deployment**: DigitalOcean App Platform with automatic CI/CD
+- **Documentation**: OpenAPI/Swagger auto-generated from route schemas
 
-## Technology Stack Requirements
+## Technology Stack
 
-- **React**: Latest React.js with TypeScript
-- **Build Tool**: Vite for fast development and bundling
-- **State Management**: Redux Toolkit with Redux Saga for async operations
-- **API Calls**: Axios for HTTP requests
-- **UI Framework**: Material UI for component library
-- **Design Pattern**: Atomic Design principles
-- **API Layer**: All API calls handled through Redux Saga
-- **Backend (if needed)**: Fastify with AWS Lambda
-- **Testing**: Cypress for E2E testing
-- **Code Style**: Airbnb JavaScript Style Guide
-- **Linting/Formatting**: ESLint + Prettier
-- **Version Control**: Git with GitHub
+| Component | Technology |
+|-----------|------------|
+| **Runtime** | Node.js 20.x + TypeScript |
+| **Framework** | Fastify 4.x |
+| **ORM** | Prisma 5.x |
+| **Database** | PostgreSQL 16 |
+| **Validation** | Zod |
+| **Documentation** | Swagger/OpenAPI |
+| **Deployment** | DigitalOcean App Platform |
+| **CI/CD** | GitHub Actions |
+| **Linting** | ESLint + Prettier |
+| **Testing** | Vitest |
 
+## Project Structure
+
+```
+/
+├── .do/                    # DigitalOcean configuration
+│   └── app.yaml           # App Platform spec
+├── .github/
+│   └── workflows/         # GitHub Actions CI/CD
+├── prisma/
+│   ├── schema.prisma      # Database schema
+│   └── seed.ts            # Database seeding
+├── src/
+│   ├── config/            # Application configuration
+│   ├── lib/               # Shared libraries (Prisma client)
+│   ├── routes/            # Fastify route handlers
+│   ├── services/          # Business logic layer
+│   ├── types/             # TypeScript types & Zod schemas
+│   ├── utils/             # Utility functions
+│   ├── app.ts             # Fastify app configuration
+│   └── server.ts          # Entry point
+├── Dockerfile             # Container configuration
+├── docker-compose.yml     # Production Docker setup
+└── docker-compose.dev.yml # Development Docker setup
+```
 
 ## Key Development Patterns
 
-### File Organization (Atomic Design + Feature-Based Structure)
-
-```
-src/
-├── assets/             # Static resources
-│   ├── css/scss/      # SCSS styles
-│   ├── icons/         # Icon assets
-│   └── images/        # Images
-├── components/         # Reusable components (Atomic Design)
-│   ├── atoms/         # Basic UI elements (Button, Input, Icon)
-│   ├── molecules/     # Composite components (SearchBar, Card)
-│   ├── organisms/     # Complex components (Header, Sidebar)
-│   ├── containers/    # Higher-order components
-│   └── hooks/         # Custom React hooks
-├── config/            # Configuration files
-├── interfaces/        # TypeScript type definitions
-├── locals/           # Internationalization
-├── navigator/        # Route management
-├── store/            # Global Redux configuration
-├── utils/            # Utility functions
-└── views/            # Feature modules
-    ├── auth/         # Authentication
-    ├── homepage/     # Homepage
-    ├── dashboard/    # Dashboard
-    └── community-assets/ # Community assets
-```
-
-### Feature Module Structure (Modular Architecture)
-
-Each feature should follow this structure:
-
-```
-src/views/[feature-name]/
-├── index.tsx           # Main component
-├── components/         # Feature-specific components
-├── store/             # Redux store, actions, reducers, sagas (use slice)
-└── types/             # TypeScript interfaces
-```
-
-### Critical Workflows
-
-- **Dev**: `npm run dev` (Vite dev server)
-- **Build**: `npm run build` (outputs to `client/dist/`)
-- **Type check**: `npm run check`
-
-### Import Patterns
-
-- Use path aliases: `@/` for `client/src/`, `@shared/` for shared types
-- Import types from `@shared/types` (not old `@shared/schema`)
-- UI components: `@/components/ui/button`, `@/components/ui/card`, etc.
-
-### State & Data Management (Redux Architecture)
-
-- **Redux Toolkit**: Modern Redux with createSlice
-- **Redux Saga**: Handle all API calls and side effects
-- **State Structure**: Each API slice must follow this initial state pattern:
+### Route Handler Pattern
 
 ```typescript
-{
-  data: null,
-  isFetching: false,
-  isSuccess: false,
-  isError: false,
-  error: null,
+// src/routes/[resource].ts
+import { FastifyInstance } from 'fastify';
+import { ResourceService } from '../services/resourceService.js';
+import { CreateResourceSchema } from '../types/resource.js';
+
+export async function resourceRoutes(app: FastifyInstance): Promise<void> {
+  const service = new ResourceService();
+
+  app.get('/', {
+    schema: {
+      tags: ['Resource'],
+      summary: 'Get all resources',
+      response: { 200: { /* ... */ } }
+    }
+  }, async (request, reply) => {
+    const result = await service.findAll();
+    return reply.send(result);
+  });
 }
 ```
 
-### Redux Slice Pattern
-
-
-- Each API endpoint should have its own slice file
-- Each slice should include the following action creators and reducers:
-
-- `[apiName]Request` - Initiate API call
-- `[apiName]Success` - Handle successful response
-- `[apiName]Failure` - Handle error response
-- `[apiName]Reset` - Reset state to initial values
-
-Example:
+### Service Layer Pattern
 
 ```typescript
-// userSlice.ts
-const userSlice = createSlice({
-  name: "user",
-  initialState: {
-    data: null,
-    isFetching: false,
-    isSuccess: false,
-    isError: false,
-    error: null,
-  },
-  reducers: {
-    getUserRequest: (state) => {
-      state.isFetching = true;
-    },
-    getUserSuccess: (state, action) => {
-      state.data = action.payload;
-      state.isFetching = false;
-      state.isSuccess = true;
-    },
-    getUserFailure: (state, action) => {
-      state.error = action.payload;
-      state.isFetching = false;
-      state.isError = true;
-    },
-    resetUser: () => initialState,
-  },
-});
-```
+// src/services/[resource]Service.ts
+import { prisma } from '../lib/prisma.js';
 
-### UI/UX Conventions
+export class ResourceService {
+  async findAll() {
+    return prisma.resource.findMany();
+  }
 
-- **Card-based layouts** with shadcn Card component
-- **Modal patterns**: Dialog components for create/edit forms
-- **Toast notifications**: `useToast()` hook for user feedback
-- **Responsive design**: Tailwind classes, mobile-first approach
-- **Accessibility**: ARIA labels, keyboard navigation, `data-testid` attributes
-
-### Navigation Structure
-
-- **Main navigation**: Horizontal menu in `Navigation` component
-- **Protected routes**: All behind password screen
-- **Admin section**: `/admin` → `/admin/jobs`, `/admin/workers`, etc.
-- **Back navigation**: `BackToAdmin` component for breadcrumbs
-
-### Code Organization Principles
-
-1. **Feature-based folder structure**: Group related files by feature
-2. **Separation of concerns**: Keep UI, logic, and state separate
-3. **TypeScript**: Use strict typing for type safety
-4. **Custom hooks**: Extract reusable logic into custom hooks
-5. **Environment variables**: Use env variables instead of hardcoding sensitive data
-6. **Atomic Design**: Structure components hierarchically (atoms → molecules → organisms)
-7. **Consistent naming conventions**: Clear and descriptive names for files, variables, and functions
-8. **Documentation**: Comment complex logic and maintain README files for modules
-9. **Testing**: Write E2E tests for critical user flows with Cypress
-10. **Performance optimization**: Lazy load components and optimize bundle size
-11. **Development workflow**: Create View/Pages first, then build components, then integrate state management and API calls
-12. **Development workflow**: Create new files for each feature e.g. Views/Pages → Components → Store (Redux Slice + Saga) → Types
-
-### Form Handling Example
-
-```tsx
-const form = useForm<FormData>({
-  resolver: zodResolver(schema),  // Zod validation
-  defaultValues: { ... }
-});
-
-// Submit with Redux Saga API call
-const onSubmit = (data) => {
-  dispatch(createUserRequest(data));
-};
-```
-
-### API Integration Pattern
-
-```typescript
-// saga.ts
-function* createUserSaga(action: PayloadAction<UserData>) {
-  try {
-    const response: ApiResponse = yield call(
-      apiService.createUser,
-      action.payload
-    );
-    yield put(createUserSuccess(response.data));
-  } catch (error) {
-    yield put(createUserFailure(error.message));
+  async create(data: CreateResource) {
+    return prisma.resource.create({ data });
   }
 }
 ```
 
-### Development Workflow Enhancements
+### Zod Validation Pattern
 
-#### Code Quality
+```typescript
+// src/types/[resource].ts
+import { z } from 'zod';
 
-- **ESLint + Prettier**: Enforce consistent code style
-- **Husky + lint-staged**: Pre-commit hooks for quality checks
-- **Bundle Analyzer**: Monitor and optimize bundle size
+export const CreateResourceSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email'),
+});
 
-#### Documentation
-
-- **Storybook**: Component documentation and testing
-- **API Documentation**: OpenAPI/Swagger integration
-- **Architecture Decision Records**: Document technical decisions
-
-#### Performance Monitoring
-
-- **React Developer Tools Profiler**: Identify performance bottlenecks
-- **Web Vitals**: Monitor real-user performance metrics
-- **Bundle Analysis**: Track bundle size growth
-
-### Theme Integration
-
-```tsx
-const { theme, toggleTheme } = useTheme();
-// Automatic localStorage persistence
-// CSS classes: "light" or "dark" on document root
+export type CreateResource = z.infer<typeof CreateResourceSchema>;
 ```
 
-## Common Anti-Patterns to Avoid
+### Error Handling
 
-- Don't import from `@shared/schema` (removed)
-- Don't create backend routes or DB queries
-- Don't use React Router (use `wouter` Link and Route)
-- Don't hardcode API endpoints (prepare for third-party integration)
-- Don't hardcode sensitive data (use environment variables)
-- Don't mix UI logic with business logic (use custom hooks)
-- Don't ignore TypeScript errors (maintain strict type safety)
-- Don't skip pre-commit hooks (maintain code quality standards)
+All errors are handled by the centralized error handler in `src/utils/errorHandler.ts`:
+- Zod validation errors → 400 Bad Request
+- Prisma P2002 (unique constraint) → 409 Conflict
+- Prisma P2025 (not found) → 404 Not Found
+- Unknown errors → 500 Internal Server Error
 
-## Key Files for Context
+## Critical Workflows
 
-- `client/src/App.tsx` - Main app structure and routing
-- `shared/types.ts` - All TypeScript interfaces for domain objects
-- `client/src/contexts/ThemeContext.tsx` - Theme management
-- `components.json` - Shadcn configuration
-- `client/src/components/Navigation.tsx` - Main navigation component
+### Development
+
+```bash
+# Start PostgreSQL database
+docker-compose -f docker-compose.dev.yml up -d
+
+# Install dependencies
+npm install
+
+# Setup environment
+cp .env.example .env
+# Edit .env with: DATABASE_URL=postgresql://thingzly:thingzly@localhost:5432/thingzly
+
+# Generate Prisma client
+npm run db:generate
+
+# Run migrations
+npm run db:migrate
+
+# Seed database (optional)
+npm run db:seed
+
+# Start dev server
+npm run dev
+```
+
+### Testing
+
+```bash
+npm run test        # Watch mode
+npm run test:run    # Single run
+npm run test:coverage
+```
+
+### Building
+
+```bash
+npm run build       # TypeScript compilation
+npm run typecheck   # Type checking only
+npm run lint        # ESLint
+npm run lint:fix    # Auto-fix lint issues
+```
+
+### Database Commands
+
+```bash
+npm run db:generate    # Generate Prisma client
+npm run db:migrate     # Create migration (dev)
+npm run db:migrate:deploy # Apply migrations (prod)
+npm run db:push        # Push schema without migration
+npm run db:studio      # Open Prisma Studio GUI
+npm run db:seed        # Run seed script
+```
+
+## API Conventions
+
+### Response Format
+
+**Success Response:**
+```json
+{
+  "data": [...],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 100,
+    "totalPages": 10
+  }
+}
+```
+
+**Error Response:**
+```json
+{
+  "error": "Validation Error",
+  "message": "Request validation failed",
+  "statusCode": 400,
+  "details": [...]
+}
+```
+
+### API Endpoints
+
+- All endpoints prefixed with `/api/v1`
+- Health check: `GET /api/v1/health`
+- Swagger docs: `GET /docs`
+
+### HTTP Status Codes
+
+| Code | Meaning |
+|------|---------|
+| 200 | Success |
+| 201 | Created |
+| 204 | No Content (successful delete) |
+| 400 | Bad Request (validation error) |
+| 404 | Not Found |
+| 409 | Conflict (duplicate) |
+| 500 | Internal Server Error |
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Server port | 3000 |
+| `HOST` | Server host | 0.0.0.0 |
+| `NODE_ENV` | Environment | development |
+| `DATABASE_URL` | PostgreSQL connection string | Required |
+| `API_PREFIX` | API route prefix | /api/v1 |
+| `CORS_ORIGIN` | CORS allowed origins | * |
+| `LOG_LEVEL` | Logging level | info |
+
+## Deployment (DigitalOcean)
+
+### Prerequisites
+
+1. DigitalOcean account
+2. GitHub repository connected to DO App Platform
+3. Create App from `.do/app.yaml`
+
+### GitHub Secrets Required
+
+| Secret | Description |
+|--------|-------------|
+| `DIGITALOCEAN_ACCESS_TOKEN` | DO API token |
+| `DIGITALOCEAN_APP_ID` | App Platform app ID |
+
+### Deployment Flow
+
+1. Push to `main` branch
+2. GitHub Actions runs lint, test, build
+3. On success, triggers DO App Platform deployment
+4. DO builds container and deploys
+5. Prisma migrations run on startup
+
+## Code Style Guidelines
+
+1. **Naming Conventions**
+   - Files: `camelCase.ts` (e.g., `userService.ts`)
+   - Classes: `PascalCase` (e.g., `UserService`)
+   - Functions/variables: `camelCase`
+   - Constants: `UPPER_SNAKE_CASE`
+
+2. **Import Order**
+   - Node.js built-ins
+   - External packages
+   - Internal modules (config → lib → routes → services → types → utils)
+
+3. **TypeScript**
+   - Always define return types for functions
+   - Use `unknown` instead of `any`
+   - Prefer interfaces for object shapes
+   - Use Zod schemas for runtime validation
+
+4. **API Design**
+   - RESTful resource naming
+   - Consistent error responses
+   - Swagger documentation for all endpoints
+   - Input validation with Zod
+
+## Anti-Patterns to Avoid
+
+- Don't put business logic in route handlers (use services)
+- Don't use raw SQL queries (use Prisma)
+- Don't hardcode configuration values (use environment variables)
+- Don't skip Zod validation for request bodies
+- Don't forget to add Swagger schema for new endpoints
+- Don't commit `.env` files
+
+## Adding New Features
+
+1. **Create Prisma model** in `prisma/schema.prisma`
+2. **Run migration**: `npm run db:migrate`
+3. **Create types** in `src/types/[resource].ts`
+4. **Create service** in `src/services/[resource]Service.ts`
+5. **Create routes** in `src/routes/[resource].ts`
+6. **Register routes** in `src/app.ts`
+7. **Add tests** for the new feature

@@ -1,0 +1,265 @@
+// Prisma schema for Thingzly API
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  BUYER
+  CREATOR
+  ADMIN
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+model User {
+  id             String   @id @default(uuid())
+  cognitoUserId  String   @unique
+  email          String
+  username       String?  @unique
+  fullName       String?
+  avatarUrl      String?
+
+  role           UserRole @default(BUYER)
+
+  isActive       Boolean  @default(true)
+  emailVerified  Boolean  @default(false)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  creatorProfile CreatorProfile?
+
+  orders         Order[]
+  reviews        Review[]
+  downloads      Download[]
+}
+
+
+model CreatorProfile {
+  id          String @id @default(uuid())
+
+  userId      String @unique
+  user        User   @relation(fields: [userId], references: [id])
+
+  displayName String?
+  bio         String?
+
+  websiteUrl  String?
+  twitterUrl  String?
+  instagramUrl String?
+
+  payoutMethod String?
+  payoutDetails Json?
+
+  isVerified   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  products Product[]
+  payouts  Payout[]
+}
+
+
+
+model Category {
+  id        String   @id @default(uuid())
+
+  name      String
+  slug      String   @unique
+  description String?
+
+  parentId  String?
+  parent    Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryHierarchy")
+
+  createdAt DateTime @default(now())
+
+  productCategories ProductCategory[]
+}
+
+model Product {
+  id          String   @id @default(uuid())
+
+  creatorId   String
+  creator     CreatorProfile @relation(fields: [creatorId], references: [id])
+
+  title       String
+  description String?
+
+  price       Int
+  currency    String   @default("INR")
+
+  category    String?
+  tags        String[]
+
+  previewUrl  String?
+
+  status      ProductStatus @default(DRAFT)
+
+  isPublic    Boolean @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  files       ProductFile[]
+  orderItems  OrderItem[]
+  reviews     Review[]
+  downloads   Download[]
+
+  categories  ProductCategory[]
+}
+
+
+model ProductCategory {
+  id         String @id @default(uuid())
+
+  productId  String
+  categoryId String
+
+  product    Product  @relation(fields: [productId], references: [id])
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([productId, categoryId])
+}
+
+
+model ProductFile {
+  id        String @id @default(uuid())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  fileName  String
+  s3Key     String
+
+  fileSize  Int?
+  fileType  String?
+
+  createdAt DateTime @default(now())
+}
+
+
+
+model Order {
+  id        String @id @default(uuid())
+
+  buyerId   String
+  buyer     User   @relation(fields: [buyerId], references: [id])
+
+  totalAmount Int
+  currency    String @default("INR")
+
+  paymentStatus PaymentStatus @default(PENDING)
+
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+
+  createdAt DateTime @default(now())
+
+  items OrderItem[]
+}
+
+
+model OrderItem {
+  id        String @id @default(uuid())
+
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  price     Int
+
+  createdAt DateTime @default(now())
+}
+
+
+
+
+model Download {
+  id        String @id @default(uuid())
+
+  userId    String
+  user      User @relation(fields: [userId], references: [id])
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  downloadCount    Int      @default(0)
+  lastDownloadedAt DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+
+
+
+
+model Review {
+  id        String @id @default(uuid())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  userId    String
+  user      User @relation(fields: [userId], references: [id])
+
+  rating    Int
+  comment   String?
+
+  createdAt DateTime @default(now())
+}
+
+
+
+
+model Payout {
+  id        String @id @default(uuid())
+
+  creatorId String
+  creator   CreatorProfile @relation(fields: [creatorId], references: [id])
+
+  amount    Int
+  currency  String @default("INR")
+
+  status    PayoutStatus @default(PENDING)
+
+  processedAt DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+
+
+model Waitlist {
+  id        String @id @default(uuid())
+  email     String @unique
+  source    String?
+
+  createdAt DateTime @default(now())
+}
