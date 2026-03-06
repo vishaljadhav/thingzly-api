@@ -10,6 +10,7 @@ import { healthRoutes } from './routes/health.js';
 import { userRoutes } from './routes/users.js';
 import { categoryRoutes } from './routes/category.js';
 import { productRoutes } from './routes/products.js';
+import { authRoutes } from './routes/auth.js';
 import { errorHandler } from './utils/errorHandler.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -57,10 +58,21 @@ export async function buildApp(): Promise<FastifyInstance> {
       ],
       tags: [
         { name: 'Health', description: 'Health check endpoints' },
-        { name: 'Users', description: 'User management endpoints' },
+        { name: 'Auth', description: 'Authentication endpoints' },
+        { name: 'Users', description: 'CMS User management endpoints' },
         { name: 'Category', description: 'Category management endpoints' },
         { name: 'Products', description: 'Product management endpoints' },
       ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+            description: 'AWS Cognito JWT token',
+          },
+        },
+      },
     },
   });
 
@@ -77,6 +89,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Register routes
   await app.register(healthRoutes, { prefix: config.apiPrefix });
+  await app.register(authRoutes, { prefix: `${config.apiPrefix}/auth` });
   await app.register(userRoutes, { prefix: `${config.apiPrefix}/users` });
   await app.register(categoryRoutes, { prefix: `${config.apiPrefix}/categories` });
   await app.register(productRoutes, { prefix: `${config.apiPrefix}/products` });

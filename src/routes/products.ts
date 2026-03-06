@@ -123,6 +123,7 @@ export async function productRoutes(app: FastifyInstance): Promise<void> {
                     properties: {
                       id: { type: 'string' },
                       displayName: { type: 'string' },
+                      username: { type: 'string' },
                     },
                   },
                   categories: {

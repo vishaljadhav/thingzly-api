@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { CreateUser, UpdateUser, PaginatedResponse } from '../types/user.js';
+import { SyncUser, UpdateProfile } from '../types/auth.js';
 import { User } from '@prisma/client';
 
 export class UserService {
@@ -36,6 +37,47 @@ export class UserService {
     return prisma.user.findUnique({
       where: { email },
     });
+  }
+
+  async findByCognitoId(cognitoUserId: string): Promise<User | null> {
+    return prisma.user.findUnique({
+      where: { cognitoUserId },
+    });
+  }
+
+  /**
+   * Creates or updates a user based on Cognito user ID.
+   * Used for syncing user data from Cognito after authentication.
+   */
+  async syncUser(data: SyncUser): Promise<User> {
+    return prisma.user.upsert({
+      where: { cognitoUserId: data.cognitoUserId },
+      update: {
+        email: data.email,
+        username: data.username,
+        fullName: data.fullName,
+      },
+      create: {
+        cognitoUserId: data.cognitoUserId,
+        email: data.email,
+        username: data.username,
+        fullName: data.fullName,
+      },
+    });
+  }
+
+  /**
+   * Updates user profile for an authenticated user
+   */
+  async updateProfile(cognitoUserId: string, data: UpdateProfile): Promise<User | null> {
+    try {
+      return await prisma.user.update({
+        where: { cognitoUserId },
+        data,
+      });
+    } catch {
+      return null;
+    }
   }
 
   async create(data: CreateUser): Promise<User> {

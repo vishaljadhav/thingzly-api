@@ -8,6 +8,10 @@ const envSchema = z.object({
   API_PREFIX: z.string().default('/api/v1'),
   CORS_ORIGIN: z.string().default('*'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  // AWS Cognito configuration
+  AWS_COGNITO_USER_POOL_ID: z.string().min(1, 'AWS_COGNITO_USER_POOL_ID is required'),
+  AWS_COGNITO_CLIENT_ID: z.string().min(1, 'AWS_COGNITO_CLIENT_ID is required'),
+  AWS_COGNITO_REGION: z.string().default('us-east-1'),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -29,6 +33,12 @@ export const config = {
   isDev: parsed.data.NODE_ENV === 'development',
   isProd: parsed.data.NODE_ENV === 'production',
   isTest: parsed.data.NODE_ENV === 'test',
+  // AWS Cognito
+  cognito: {
+    userPoolId: parsed.data.AWS_COGNITO_USER_POOL_ID,
+    clientId: parsed.data.AWS_COGNITO_CLIENT_ID,
+    region: parsed.data.AWS_COGNITO_REGION,
+  },
 } as const;
 
 export type Config = typeof config;
